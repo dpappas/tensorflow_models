@@ -91,7 +91,6 @@ dropout = 0.75 # Dropout, probability to keep units
 # data_format: A string. 'NHWC' and 'NCHW' are supported.
 # name: Optional name for the operation.
 
-
 # class tf.nn.rnn_cell.BasicLSTMCell
 # num_units: int, The number of units in the LSTM cell.
 # forget_bias: float, The bias added to forget gates (see above).
@@ -100,7 +99,6 @@ dropout = 0.75 # Dropout, probability to keep units
 # activation: Activation function of the inner states.
 
 #tf.one_hot(indices, depth, on_value=None, off_value=None, axis=None, dtype=None, name=None)
-#
 
 # tf.nn.rnn(cell, inputs, initial_state=None, dtype=None, sequence_length=None, scope=None)
 # cell: An instance of RNNCell.
@@ -133,13 +131,14 @@ def create_model(text_x, speaker_x, weights, biases, dropout):
         print(conc[i].get_shape().as_list())
     # print(weights['out'].get_shape().as_list())
     # print(biases['out'].get_shape().as_list())
-    with tf.variable_scope("lstm_1"):
+    with tf.variable_scope("lstm_1", reuse=True):
         lstm_cell = rnn_cell.BasicLSTMCell(200, forget_bias=1.0)
         # Get lstm cell output
         outputs, states = rnn.rnn(lstm_cell, conc, dtype=tf.float32)
-        print('outputs : ',outputs.get_shape().as_list())
-        print('states : ',states.get_shape().as_list())
-    mul = tf.matmul(conc, weights['out'])
+        for i in range(len(outputs)):
+            print('outputs : ',outputs[i].get_shape().as_list())
+            #print('states : ',states[i].get_shape().as_list())
+    mul = tf.matmul(outputs[-1], weights['out'])
     print('mul : ',mul.get_shape().as_list())
     out = tf.add(mul, biases['out'])
     print('out : ',out.get_shape().as_list())
@@ -163,7 +162,6 @@ optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(cost)
 preds = tf.cast(tf.argmax(pred, 1), tf.int32)
 correct_pred = tf.equal(preds, y)
 accuracy = tf.reduce_mean(tf.cast(correct_pred, tf.float32))
-
 
 # Initializing the variables
 init = tf.initialize_all_variables()
