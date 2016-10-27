@@ -1,7 +1,6 @@
 
 import numpy as np
 import tensorflow as tf
-from tensorflow.python.ops import rnn, rnn_cell
 
 n_classes = 20
 n_input = 1
@@ -101,14 +100,7 @@ dropout = 0.75 # Dropout, probability to keep units
 
 #tf.one_hot(indices, depth, on_value=None, off_value=None, axis=None, dtype=None, name=None)
 #
-
-# tf.nn.rnn(cell, inputs, initial_state=None, dtype=None, sequence_length=None, scope=None)
-# cell: An instance of RNNCell.
-# inputs: A length T list of inputs, each a Tensor of shape [batch_size, input_size], or a nested tuple of such elements.
-# initial_state: (optional) An initial state for the RNN. If cell.state_size is an integer, this must be a Tensor of appropriate type and shape [batch_size, cell.state_size]. If cell.state_size is a tuple, this should be a tuple of tensors having shapes [batch_size, s] for s in cell.state_size.
-# dtype: (optional) The data type for the initial state and expected output. Required if initial_state is not provided or RNN state has a heterogeneous dtype.
-# sequence_length: Specifies the length of each sequence in inputs. An int32 or int64 vector (tensor) size [batch_size], values in [0, T).
-# scope: VariableScope for the created subgraph; defaults to "RNN".
+#
 
 # Create model
 def create_model(text_x, speaker_x, weights, biases, dropout):
@@ -117,28 +109,33 @@ def create_model(text_x, speaker_x, weights, biases, dropout):
     # lookup the embedding
     text_embed = tf.nn.embedding_lookup(weights['text_embeddings'], text_x)
     print('text_embed : ', text_embed.get_shape().as_list())
+    # reshape embedding to pass from max_pool
+    text_embed = tf.reshape(text_embed, shape=[-1, n_input, text_embedding_size, 1])
+    print('text_embed : ', text_embed.get_shape().as_list())
+    # max_pool of 5 embeddings
+    max_text = tf.nn.max_pool(text_embed, ksize=[1, n_input, 1, 1], strides=[1, 1, 1, 1],padding='VALID')
+    print('max_text : ', max_text.get_shape().as_list())
+    # reshape embedding to pass from matmul output
+    max_text = tf.reshape(max_text, shape=[-1, text_embedding_size])
+    print('max_text : ', max_text.get_shape().as_list())
     #  handle speakers
     # lookup the embedding
     speaker_embed = tf.nn.embedding_lookup(weights['speaker_embeddings'], speaker_x )
     print('speaker_embed : ', speaker_embed.get_shape().as_list())
     # reshape embedding to pass from max_pool
+    speaker_embed = tf.reshape(speaker_embed, shape=[-1, n_input, speaker_embedding_size, 1])
+    print('speaker_embed : ', speaker_embed.get_shape().as_list())
+    # max_pool of 5 embeddings
+    max_speaker = tf.nn.max_pool(text_embed, ksize=[1, n_input, 1, 1], strides=[1, 1, 1, 1],padding='VALID')
+    print('max_speaker : ', max_speaker.get_shape().as_list())
+    # reshape embedding to pass from matmul output
+    max_speaker = tf.reshape(max_speaker, shape=[-1, text_embedding_size])
+    print('max_speaker : ', max_speaker.get_shape().as_list())
     # concatenate the 2 embeddings
-    conc = tf.concat(2, [text_embed, speaker_embed])
+    conc = tf.concat(1, [max_text, max_speaker])
     print('conc : ',conc.get_shape().as_list())
-    conc = tf.split(1, 5, conc)
-    print('conc : ',len(conc))
-    for i in range(len(conc)):
-        print(conc[i].get_shape().as_list())
-        conc[i] = tf.reshape(conc[i], shape=[-1, conc[i].get_shape().as_list()[-1]])
-        print(conc[i].get_shape().as_list())
     # print(weights['out'].get_shape().as_list())
     # print(biases['out'].get_shape().as_list())
-    with tf.variable_scope("lstm_1"):
-        lstm_cell = rnn_cell.BasicLSTMCell(200, forget_bias=1.0)
-        # Get lstm cell output
-        outputs, states = rnn.rnn(lstm_cell, conc, dtype=tf.float32)
-        print('outputs : ',outputs.get_shape().as_list())
-        print('states : ',states.get_shape().as_list())
     mul = tf.matmul(conc, weights['out'])
     print('mul : ',mul.get_shape().as_list())
     out = tf.add(mul, biases['out'])
